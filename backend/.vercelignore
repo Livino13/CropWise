@@ -1,0 +1,14 @@
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+env
+.env
+.env.*
+*.db
+*.log
+.pytest_cache
+.mypy_cache
+data/raw/
+app/ml/artifacts/model_v*.joblib

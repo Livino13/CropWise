@@ -2,6 +2,19 @@
 
 CropWise is a farmer-friendly crop recommendation and field planning app. It combines a machine-learning crop ranker with deterministic, field-specific growing plans, fertilizer stages, pest guidance, local weather, and a Gemini-powered assistant.
 
+## Live demo
+
+| Service | URL |
+| --- | --- |
+| Web app | [cropwise-psi.vercel.app](https://cropwise-psi.vercel.app) |
+| API | [cropwise-api.vercel.app](https://cropwise-api.vercel.app) |
+| API docs (Swagger) | [cropwise-api.vercel.app/docs](https://cropwise-api.vercel.app/docs) |
+| Health check | [cropwise-api.vercel.app/health](https://cropwise-api.vercel.app/health) |
+
+The frontend is a static Vite build on Vercel; the FastAPI backend runs as a Vercel Python function. See [Deploying to Vercel](#deploying-to-vercel) for how both are configured.
+
+> **Note:** the live backend uses SQLite in `/tmp`, which is ephemeral on Vercel. Fields, history and feedback are reset when the function instance is recycled. Use PostgreSQL (`DATABASE_URL`) for persistent data.
+
 ## Features
 
 - **51-crop recommendation** using FCM clustering, PSO feature weighting, and a Random Forest classifier.
@@ -129,13 +142,54 @@ frontend/
 docker-compose.yml
 ```
 
+## Deploying to Vercel
+
+The app runs as two Vercel projects built from this repository.
+
+### Backend - `cropwise-api`
+
+Vercel's Python runtime needs an ASGI entrypoint inside `api/`, so `backend/api/index.py` imports the FastAPI `app` from `backend/app/main.py`. `backend/vercel.json` uploads the trained model with the function (`includeFiles`) and rewrites every request path to that entrypoint.
+
+The model artifact is git-ignored, so it is shipped inside the deployment instead of being retrained on every build (training takes about 10 minutes). Create it before deploying:
+
+```powershell
+cd backend
+python build.py    # no-op when model.joblib exists, otherwise runs train.py
+vercel --prod
+```
+
+Production environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `LLM_API_KEY` | Gemini key. Chat is disabled when empty. |
+| `LLM_MODEL`, `LLM_FALLBACK_MODEL`, `LLM_BASE_URL` | Assistant model settings. |
+| `CORS_ORIGINS` | Comma-separated frontend origins, e.g. `https://cropwise-psi.vercel.app` |
+| `SECRET_KEY` | Application secret. |
+| `DATABASE_URL` | `sqlite:////tmp/cropwise.db` (set in `vercel.json`). Use PostgreSQL for persistence. |
+
+`LLM_API_KEY` and `SECRET_KEY` are stored as Vercel Secret variables, so they never appear in the repository, the README or the build logs.
+
+### Frontend - `cropwise`
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `frontend` |
+| Framework preset | Vite (`npm run build` → `dist/`) |
+| Environment variable | `VITE_API_URL=https://cropwise-api.vercel.app` |
+
+Pushing to `main` deploys the frontend automatically through the GitHub integration. The backend is deployed from the CLI so the locally trained 44 MB model can be uploaded with the function.
+
+`frontend/vercel.json` rewrites all paths to `index.html` for client-side routing.
+
 ## Notes and limitations
 
 - Sign-in is currently a local demo flow. Add real authentication before a public multi-user deployment.
 - Fertilizer and pesticide grades and doses are guidance only. Confirm them with a local dealer or agriculture officer.
 - Plan accuracy depends on the quality of soil values, field coordinates and weather data.
 - Crop photo licensing should be reviewed before making the repository public.
-- GitHub Pages cannot host the FastAPI backend. Use a separate backend host for a live deployment.
+- The live backend uses SQLite in `/tmp`, which is ephemeral on Vercel. Set `DATABASE_URL` to PostgreSQL (Neon, Supabase) before relying on saved fields, history or feedback.
+- GitHub Pages cannot host the FastAPI backend; the deployed API runs on Vercel's Python runtime.
 
 ## License
 

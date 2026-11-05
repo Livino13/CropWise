@@ -1,0 +1,25 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "build": {
+    "env": {
+      "UV_PYTHON": "3.12",
+      "UV_LINK_MODE": "copy"
+    }
+  },
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60,
+      "includeFiles": "app/ml/artifacts/**"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ],
+  "env": {
+    "DATABASE_URL": "sqlite:////tmp/cropwise.db",
+    "UV_PYTHON": "3.12"
+  }
+}
